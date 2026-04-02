@@ -1,4 +1,6 @@
 import re
+import time
+import random
 from youtube_transcript_api import YouTubeTranscriptApi
 
 def extrair_texto_falado(video_id):
@@ -8,6 +10,13 @@ def extrair_texto_falado(video_id):
     Prioridade ajustada para capturar a transcrição REAL (Automática > Manual).
     """
     try:
+        # --- NOVO: PACING (CONTA-GOTAS) PARA EVITAR BLOCK ---
+        # Espera entre 120 e 300 segundos (2 a 5 minutos) antes de pedir a legenda
+        espera = random.uniform(120, 300)
+        minutos = espera / 60
+        print(f"    [Pausa de Segurança] Simulando humano... Aguardando {minutos:.1f} minutos.")
+        time.sleep(espera)
+
         # 1. NOVA SINTAXE DE LISTAGEM:
         # Instanciar a classe e chamar .list()
         ytt_api = YouTubeTranscriptApi()
@@ -60,6 +69,13 @@ def extrair_texto_falado(video_id):
         return texto_limpo
 
     except Exception as e:
+        erro_str = str(e)
+        
+        # --- NOVO: IDENTIFICADOR CRÍTICO DE BLOQUEIO DE IP ---
+        # Se for o Erro 429, ele manda um sinal claro para o coletor.py parar de chamar essa função
+        if "429" in erro_str or "Too Many Requests" in erro_str or "IpBlocked" in erro_str:
+            return "[ERRO_CRITICO_IP_BLOQUEADO]"
+
         # Mantém exatamente o seu padrão de tratamento de string de erro
         erro_msg = str(e).strip().split('\n')[0][:80]
         tipo_erro = type(e).__name__

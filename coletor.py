@@ -4,6 +4,7 @@ import isodate
 from tqdm import tqdm
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
+from datetime import datetime, timedelta, timezone
 
 # Importa a função de extração do seu outro arquivo .py
 # (Substitua 'nome_do_arquivo_extrator' pelo nome real do seu arquivo)
@@ -25,7 +26,10 @@ def buscar_dados_completos_shorts(query, max_results=50):
     """
     Realiza a coleta de metadados de vídeos do YouTube com base em uma string de busca.
     """
+    
+    data_limite = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
     print(f"\nIniciando busca na API Oficial para a query: '{query}'")
+    print(f"📅 Filtrando apenas virais postados após: {data_limite}")
     
     try:
         video_ids = []
@@ -41,6 +45,7 @@ def buscar_dados_completos_shorts(query, max_results=50):
                 "type": "video",
                 "videoDuration": "short", # Garante que são Shorts
                 "order": "viewCount",
+                "publishedAfter": data_limite,
                 "maxResults": limite_atual,
             }
             if next_page_token:
@@ -68,6 +73,8 @@ def buscar_dados_completos_shorts(query, max_results=50):
         # Divisão dos IDs em lotes de até 50 elementos (limite do endpoint videos().list)
         lotes_ids = [video_ids[i:i + 50] for i in range(0, len(video_ids), 50)]
 
+        ip_bloqueado_no_youtube = False
+
         # Etapa 2: Requisição em lote para coleta exaustiva de atributos
         for lote in lotes_ids:
             request_videos = youtube.videos().list(
@@ -93,9 +100,20 @@ def buscar_dados_completos_shorts(query, max_results=50):
                 except Exception:
                     duracao_segundos = 0
 
-                # Chamada da função de integração de texto com Jitter Anti-Bot
+                # Chamada da função de integração de texto com Jitter Anti-Bot E TRAVA
                 try:
-                    texto_falado = extrair_texto_falado(video_id)
+                    if ip_bloqueado_no_youtube:
+                        # Se já tomamos block, nem chama a biblioteca, só preenche e pula
+                        texto_falado = "[PULADO]: IP Bloqueado. Coletando apenas metadados oficiais."
+                    else:
+                        # Chama a biblioteca normalmente
+                        texto_falado = extrair_texto_falado(video_id)
+                        
+                        # Se a biblioteca gritar que foi bloqueada, a gente vira a chave
+                        if texto_falado == "[ERRO_CRITICO_IP_BLOQUEADO]":
+                            print("\n🚨 [ALERTA] Bloqueio de IP detectado! Parando extração de legendas e voando no resto...")
+                            ip_bloqueado_no_youtube = True
+                            texto_falado = "[ERRO_CRITICO]: Bloqueio de IP atingido neste vídeo."
                 except Exception as e:
                     texto_falado = f"[ERRO_SISTEMICO_EXTRAÇÃO]: {str(e)}"
 
