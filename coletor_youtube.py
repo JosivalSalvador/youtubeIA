@@ -6,10 +6,6 @@ from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta, timezone
 
-# Importa a função de extração do seu outro arquivo .py
-# (Substitua 'nome_do_arquivo_extrator' pelo nome real do seu arquivo)
-from extrator_legendas import extrair_texto_falado
-
 # --- CONFIGURAÇÃO INICIAL DO MÓDULO ---
 # Carrega a chave do .env de forma isolada e segura
 load_dotenv()
@@ -21,10 +17,11 @@ if not API_KEY:
 # Constrói o cliente da API Oficial do Google
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
-# --- FUNÇÃO PRINCIPAL DE COLETA (MANTIDA 100% FIEL AO SEU MAPEAMENTO) ---
-def buscar_dados_completos_shorts(query, max_results=50):
+# --- FUNÇÃO PRINCIPAL DE COLETA (AJUSTADA PARA O PIPELINE) ---
+def buscar_dados_completos_shorts(query, ids_conhecidos, max_results=25):
     """
-    Realiza a coleta de metadados de vídeos do YouTube com base em uma string de busca.
+    Realiza a coleta de metadados de vídeos do YouTube inéditos.
+    O texto falado não é extraído aqui para permitir o pacing assíncrono no Orquestrador.
     """
     
     data_limite = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -32,13 +29,12 @@ def buscar_dados_completos_shorts(query, max_results=50):
     print(f"📅 Filtrando apenas virais postados após: {data_limite}")
     
     try:
-        video_ids = []
+        video_ids_ineditos = []
         next_page_token = None
 
-        # Etapa 1: Coleta de IDs de vídeos utilizando paginação (pageToken)
-        while len(video_ids) < max_results:
-            limite_atual = min(50, max_results - len(video_ids))
-
+        # Etapa 1: Coleta de IDs de vídeos com filtro de duplicatas
+        while len(video_ids_ineditos) < max_results:
+            # Puxa sempre 50 para ter margem de descarte contra os ids_conhecidos
             search_kwargs = {
                 "q": query,
                 "part": "id",
@@ -46,7 +42,7 @@ def buscar_dados_completos_shorts(query, max_results=50):
                 "videoDuration": "short", # Garante que são Shorts
                 "order": "viewCount",
                 "publishedAfter": data_limite,
-                "maxResults": limite_atual,
+                "maxResults": 50, 
             }
             if next_page_token:
                 search_kwargs["pageToken"] = next_page_token
@@ -55,25 +51,29 @@ def buscar_dados_completos_shorts(query, max_results=50):
             response_search = request_search.execute()
 
             novos_ids = [item['id']['videoId'] for item in response_search.get('items', []) if item['id'].get('videoId')]
-            video_ids.extend(novos_ids)
+            
+            # Filtra os IDs verificando a base existente
+            for vid in novos_ids:
+                if vid not in ids_conhecidos:
+                    video_ids_ineditos.append(vid)
+                    ids_conhecidos.add(vid) # Evita duplicação na mesma run
+                    
+                    if len(video_ids_ineditos) == max_results:
+                        break # Bateu a meta estabelecida
 
             next_page_token = response_search.get('nextPageToken', None)
 
-            if not next_page_token or not novos_ids:
+            if not next_page_token:
                 break
 
-        video_ids = video_ids[:max_results]
-
-        if not video_ids:
-            print("Resultado da consulta: Nenhum vídeo encontrado.")
+        if not video_ids_ineditos:
+            print("Resultado da consulta: Nenhum vídeo inédito encontrado.")
             return pd.DataFrame()
 
         videos_data = []
 
-        # Divisão dos IDs em lotes de até 50 elementos (limite do endpoint videos().list)
-        lotes_ids = [video_ids[i:i + 50] for i in range(0, len(video_ids), 50)]
-
-        ip_bloqueado_no_youtube = False
+        # Divisão dos IDs inéditos em lotes de até 50 elementos (limite do endpoint)
+        lotes_ids = [video_ids_ineditos[i:i + 50] for i in range(0, len(video_ids_ineditos), 50)]
 
         # Etapa 2: Requisição em lote para coleta exaustiva de atributos
         for lote in lotes_ids:
@@ -83,8 +83,8 @@ def buscar_dados_completos_shorts(query, max_results=50):
             )
             response_videos = request_videos.execute()
 
-            # Etapa 3: Mapeamento e extração com controle de fluxo (Delay)
-            for item in tqdm(response_videos.get("items", []), desc="Extraindo dados e legendas"):
+            # Etapa 3: Mapeamento dos dados (Estrutura 100% mantida)
+            for item in tqdm(response_videos.get("items", []), desc="Extraindo metadados"):
                 video_id = item.get("id")
                 snippet = item.get("snippet", {})
                 content = item.get("contentDetails", {})
@@ -100,30 +100,13 @@ def buscar_dados_completos_shorts(query, max_results=50):
                 except Exception:
                     duracao_segundos = 0
 
-                # Chamada da função de integração de texto com Jitter Anti-Bot E TRAVA
-                try:
-                    if ip_bloqueado_no_youtube:
-                        # Se já tomamos block, nem chama a biblioteca, só preenche e pula
-                        texto_falado = "[PULADO]: IP Bloqueado. Coletando apenas metadados oficiais."
-                    else:
-                        # Chama a biblioteca normalmente
-                        texto_falado = extrair_texto_falado(video_id)
-                        
-                        # Se a biblioteca gritar que foi bloqueada, a gente vira a chave
-                        if texto_falado == "[ERRO_CRITICO_IP_BLOQUEADO]":
-                            print("\n🚨 [ALERTA] Bloqueio de IP detectado! Parando extração de legendas e voando no resto...")
-                            ip_bloqueado_no_youtube = True
-                            texto_falado = "[ERRO_CRITICO]: Bloqueio de IP atingido neste vídeo."
-                except Exception as e:
-                    texto_falado = f"[ERRO_SISTEMICO_EXTRAÇÃO]: {str(e)}"
-
                 # O SEU MAPEAMENTO COMPLETO DE DADOS INTACTO
                 video_info = {
                     "video_id": video_id,
                     "titulo": snippet.get("title", ""),
                     "descricao": snippet.get("description", ""),
                     "tags": snippet.get("tags", []),
-                    "texto_falado": texto_falado,
+                    "texto_falado": "", # O Orquestrador preencherá esta coluna durante o tempo de espera
                     "canal_id": snippet.get("channelId", ""),
                     "canal_nome": snippet.get("channelTitle", ""),
                     "visualizacoes": int(stats.get("viewCount", 0)),

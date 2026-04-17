@@ -1,6 +1,4 @@
 import re
-import time
-import random
 from youtube_transcript_api import YouTubeTranscriptApi
 
 def extrair_texto_falado(video_id):
@@ -8,15 +6,9 @@ def extrair_texto_falado(video_id):
     Substitui o yt-dlp pela youtube-transcript-api.
     Lógica de fallback de idiomas e limpeza de texto mantida.
     Prioridade ajustada para capturar a transcrição REAL (Automática > Manual).
+    O controle de tempo (pacing) foi movido para o orquestrador para permitir processamento assíncrono.
     """
     try:
-        # --- NOVO: PACING (CONTA-GOTAS) PARA EVITAR BLOCK ---
-        # Espera entre 120 e 300 segundos (2 a 5 minutos) antes de pedir a legenda
-        espera = random.uniform(120, 300)
-        minutos = espera / 60
-        print(f"    [Pausa de Segurança] Simulando humano... Aguardando {minutos:.1f} minutos.")
-        time.sleep(espera)
-
         # 1. NOVA SINTAXE DE LISTAGEM:
         # Instanciar a classe e chamar .list()
         ytt_api = YouTubeTranscriptApi()
