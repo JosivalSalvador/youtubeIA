@@ -50,8 +50,6 @@ def obter_nichos_ativos() -> list:
     print("           -> Usando vetor manual (API não conectada).")
     return [
         "tech review shorts",
-        "street interview shorts",
-        "reddit stories shorts"
     ]
 
 def baixar_csv_mestre() -> pd.DataFrame:

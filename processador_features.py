@@ -22,9 +22,12 @@ def remover_colunas_inuteis(df: pd.DataFrame) -> pd.DataFrame:
     """
     Remove colunas de metadados irrelevantes para a análise do modelo.
     Garante limpeza estrutural do DataFrame de forma segura.
+    Atualizada com as variáveis descontinuadas do pipeline de emergência.
     """
-    # Lista exata das colunas que decidimos remover do escopo global
+    # Lista exata fundindo as colunas originais inúteis com as novas colunas
+    # mapeadas para remoção na Camada Prata.
     colunas_para_remover = [
+        # Lixo estrutural original
         'restricao_idade',
         'live_inicio_agendado',
         'live_fim_agendado',
@@ -36,34 +39,58 @@ def remover_colunas_inuteis(df: pd.DataFrame) -> pd.DataFrame:
         'latitude',
         'longitude',
         'dimensao',
-        'projecao'
+        'projecao',
+        
+        # Novas colunas removidas pelo pipeline de emergência
+        'favoritos',
+        'duracao_iso',
+        'definicao',
+        'privacidade',
+        'licenca',
+        'permite_embed',
+        'estatisticas_publicas',
+        'restricao_regiao_bloqueada',
+        'restricao_regiao_permitida',
+        'topicos_ids',
     ]
 
     # Realiza o drop das colunas no dataframe principal
     # O errors='ignore' garante que o código não quebre caso uma dessas colunas já não exista
     df = df.drop(columns=colunas_para_remover, errors='ignore')
 
-    print(f"✅ Etapa 1 Concluída: {len(colunas_para_remover)} colunas inúteis foram removidas com sucesso.")
+    print(f" Etapa 1 Concluída: {len(colunas_para_remover)} colunas inúteis ou descontinuadas listadas para remoção.")
     print(f"Total de colunas restantes: {df.shape[1]}")
     
     return df
 
 def tratar_valores_nulos(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Trata valores ausentes (NaN) nas colunas de texto e imagens.
+    Trata valores ausentes (NaN) e anomalias de tipagem nas colunas de texto e imagens.
     Garante que as operações futuras não quebrem por falta de dados.
     """
-    # 1. Tratamento da coluna 'descricao': substitui NaN por string vazia ""
-    if 'descricao' in df.columns:
-        df['descricao'] = df['descricao'].fillna("")
+    # 1. Tratamento de Textos (Aplica a blindagem do código de emergência direto na raiz)
+    # Garante que as colunas principais não fiquem como NaN nativo nem como a string "nan"
+    colunas_texto = ['titulo', 'descricao', 'texto_falado']
+    for col in colunas_texto:
+        if col in df.columns:
+            # Preenche o NaN real do Pandas
+            df[col] = df[col].fillna("")
+            
+            # Blindagem: Mata a anomalia do Pandas que converte nulo para a string "nan"
+            mascara_string_nan = df[col].astype(str).str.strip().str.lower() == "nan"
+            df.loc[mascara_string_nan, col] = ""
 
-    # 2. Tratamento da coluna 'thumb_maxres': substitui NaN pelo valor da 'thumb_default' da mesma linha
+    # 2. Tratamento e Descarte de Thumbnails
     if 'thumb_maxres' in df.columns and 'thumb_default' in df.columns:
+        # Salva as imagens faltantes
         df['thumb_maxres'] = df['thumb_maxres'].fillna(df['thumb_default'])
+        
+        # Como já cumpriu o seu propósito, deletamos a coluna inútil aqui mesmo!
+        df = df.drop(columns=['thumb_default'], errors='ignore')
 
-    print("✅ Etapa 2 Concluída: Valores nulos tratados com segurança.")
+    print(" Etapa 2 Concluída: Nulos tratados, anomalias resolvidas e 'thumb_default' descartada.")
     
-    # Adicionei um if rápido nos prints apenas para evitar erro caso a coluna não exista no df
+    # Check rápido para garantir que zeramos os problemas
     if 'descricao' in df.columns:
         print(f"Quantidade de nulos em 'descricao' agora: {df['descricao'].isna().sum()}")
     if 'thumb_maxres' in df.columns:
@@ -87,41 +114,44 @@ def limpar_erros_transcricao(df: pd.DataFrame) -> pd.DataFrame:
         # Aplica a string vazia nas linhas que deram match
         df.loc[mask_erro_tag | mask_erro_http, 'texto_falado'] = ""
 
-        print(f"✅ Etapa 3 Concluída: {linhas_com_erro} linhas com falhas de raspagem no 'texto_falado' foram esvaziadas.")
+        print(f"Etapa 3 Concluída: {linhas_com_erro} linhas com falhas de raspagem no 'texto_falado' foram esvaziadas.")
     else:
-        print("⚠️ A coluna 'texto_falado' não foi encontrada no DataFrame.")
+        print("A coluna 'texto_falado' não foi encontrada no DataFrame.")
         
     return df
 
 def criar_features_tracao_metadados(df: pd.DataFrame) -> pd.DataFrame:
     """
     Processa Engenharia de Tração e Metadados temporais.
-    Calcula idade, velocidade de views, engajamento e o Score Viral.
+    Calcula idade dinâmica, velocidade de views, engajamento e o Score Viral.
     """
     print("Iniciando Etapa 4: Processando Engenharia de Tração e Metadados...")
 
     try:
         # 1. Metadados Temporais (Dia e Hora)
-        # Convertendo a string de data para datetime com fuso horário UTC (padrão da API do YouTube)
         df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], utc=True)
-
-        # Extraindo o dia da semana em texto e a hora inteira
-        df['dia_postagem'] = df['data_publicacao_dt'].dt.day_name()
+        
+        # Extraindo o dia da semana já formatado em minúsculo na raiz
+        df['dia_postagem'] = df['data_publicacao_dt'].dt.day_name().str.lower()
         df['hora_postagem'] = df['data_publicacao_dt'].dt.hour
 
-        # 2. Engenharia de Tração (Idade e Velocidade)
-        # Pega o exato momento de agora em UTC para calcular quantos dias de vida o vídeo tem
+        # 2. Segurança de Tipagem (Garante que os dados crus sejam números limpos)
+        for col in ['visualizacoes', 'curtidas', 'comentarios']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+        # 3. Engenharia de Tração (Idade Dinâmica e Velocidade Pura)
         data_atual = datetime.now(timezone.utc)
-        df['idade_dias'] = (data_atual - df['data_publicacao_dt']).dt.days
+        idade_bruta = (data_atual - df['data_publicacao_dt']).dt.days
 
-        # Prevenção Crítica: Se um vídeo foi postado hoje (0 dias), forçamos para 1 dia para evitar erro de divisão por zero (ZeroDivisionError)
-        df['idade_dias'] = np.where(df['idade_dias'] <= 0, 1, df['idade_dias'])
+        # O teto da idade respeita o limite máximo real do próprio dataset.
+        # O piso mínimo é 1 para evitar a quebra matemática (divisão por zero).
+        max_idade = idade_bruta.max() if not idade_bruta.empty else 1
+        df['idade_dias'] = np.clip(idade_bruta, 1, max_idade)
 
-        # Métrica Mestra: Qual é o tráfego médio diário desse vídeo?
         df['velocidade_views'] = df['visualizacoes'] / df['idade_dias']
 
-        # 3. Engenharia de Engajamento (%)
-        # Usamos np.where para evitar divisão por zero caso o vídeo não tenha nenhuma visualização
+        # 4. Taxas Exatas (Sem mascarar views)
         df['taxa_conversao'] = np.where(
             df['visualizacoes'] > 0,
             (df['curtidas'] / df['visualizacoes']) * 100,
@@ -133,12 +163,12 @@ def criar_features_tracao_metadados(df: pd.DataFrame) -> pd.DataFrame:
             0
         )
 
-        # 4. Score Viral (A seleção natural do banco)
-        # Fórmula: A tração (velocidade) ganha um bônus multiplicador baseado no engajamento real
-        multiplicador_engajamento = 1 + (df['taxa_conversao'] / 100) + (df['taxa_discussao'] / 100)
+        # 5. O Score Viral Universal (Peso real para os comentários)
+        PESO_COMENTARIO = 5.0
+        multiplicador_engajamento = 1 + (df['taxa_conversao'] / 100) + ((df['taxa_discussao'] / 100) * PESO_COMENTARIO)
         df['score_viral'] = df['velocidade_views'] * multiplicador_engajamento
 
-        # Limpeza: Deletamos a coluna datetime temporária para manter o dataset otimizado para o Módulo 3
+        # Limpeza: Deletamos a coluna datetime temporária
         df = df.drop(columns=['data_publicacao_dt'], errors='ignore')
 
         print(" SUCESSO ABSOLUTO!")
@@ -155,209 +185,172 @@ def criar_features_tracao_metadados(df: pd.DataFrame) -> pd.DataFrame:
 
 def criar_features_formato_copywriting(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Processa Engenharia de Formato, Pacing, Direção e Copywriting.
-    Extrai pistas de áudio, ritmo de fala, score de clickbait e emojis.
+    Processa Engenharia de Formato, Direção e Copywriting.
+    Extrai blocos narrativos dinâmicos, pistas de áudio absolutas, score de clickbait,
+    emojis e a nova Super Feature Semântica (palavras_chave).
     """
     print("Iniciando Etapa 5: Processando Engenharia de Formato e Copywriting...")
 
     try:
-        # 1. Timeline do Roteiro (estrutura_blocos)
-        condicoes = [
-            df['duracao_segundos'] <= 30,
-            (df['duracao_segundos'] > 30) & (df['duracao_segundos'] <= 60),
-            df['duracao_segundos'] > 60
-        ]
-        escolhas = [
-            'bloco_unico_impacto',
-            'hook_desenvolvimento_punchline',
-            'hook_narrativa_densa_cta'
-        ]
-        df['estrutura_blocos'] = np.select(condicoes, escolhas, default='desconhecido')
+        # 1. Timeline do Roteiro (estrutura_blocos) -> Ajuste estático para pipeline linha por linha
+        if 'duracao_segundos' in df.columns:
+            condicoes = [
+                df['duracao_segundos'] <= 20,  # Ultra curtos: Impacto e Loop
+                (df['duracao_segundos'] > 20) & (df['duracao_segundos'] <= 45), # Padrão: Historinha rápida
+                df['duracao_segundos'] > 45 # Shorts Longos: Narrativa densa (inclui os novos de até 3 min)
+            ]
+            
+            escolhas = ['bloco_unico_impacto', 'hook_desenvolvimento_punchline', 'hook_narrativa_densa_cta']
+            df['estrutura_blocos'] = np.select(condicoes, escolhas, default='desconhecido')
 
-        # 2. Pacing (ritmo_palavras_seg)
-        # Conta palavras separando por espaço. Se estiver nulo, conta como 0.
-        contagem_palavras = df['texto_falado'].fillna('').apply(lambda x: len(str(x).split()))
-        df['ritmo_palavras_seg'] = np.where(
-            df['duracao_segundos'] > 0,
-            contagem_palavras / df['duracao_segundos'],
-            0
-        )
-
-        # 3. Sonoplastia (pistas_audio)
-        def extrair_audio(texto):
-            texto_str = str(texto)
-            if texto_str == 'nan' or not texto_str.strip():
+        # 2. Sonoplastia (pistas_audio) -> APENAS no texto_falado com tag musical ♪
+        def extrair_audio_limpo(texto):
+            if pd.isna(texto):
                 return ""
-            # Busca tudo que está entre [] ou ()
-            matches = re.findall(r'\[.*?\]|\(.*?\)', texto_str)
-            return " ".join(matches) if matches else ""
+            matches = re.findall(r"\[.*?\]|\(.*?\)|♪", str(texto))
+            return " ".join(list(dict.fromkeys(matches))) if matches else ""
 
-        # Aplica no texto falado e no título, juntando os dois
-        df['pistas_audio'] = (df['texto_falado'].apply(extrair_audio) + " " + df['titulo'].apply(extrair_audio)).str.strip()
+        if 'texto_falado' in df.columns:
+            df['pistas_audio'] = df['texto_falado'].apply(extrair_audio_limpo).str.strip()
 
-        # 4. Copywriting (clickbait_score)
-        def calc_caixa_alta(texto):
-            texto_str = str(texto)
-            if texto_str == 'nan' or not texto_str.strip(): 
+        # 3. Copywriting (clickbait_score) -> Captura o Pico de Grito Visual
+        def calc_grito_visual(texto):
+            if pd.isna(texto) or len(str(texto)) == 0:
                 return 0.0
-            # Conta letras maiúsculas e o total de letras (ignorando números/símbolos)
+            texto_str = str(texto)
             caps = sum(1 for c in texto_str if c.isupper())
-            letras = sum(1 for c in texto_str if c.isalpha())
-            return (caps / letras * 100) if letras > 0 else 0.0
+            pontuacao_agressiva = len(re.findall(r"[!?]", texto_str))
+            base_valida = sum(1 for c in texto_str if c.isalpha()) + pontuacao_agressiva
+            return ((caps + pontuacao_agressiva) / base_valida * 100) if base_valida > 0 else 0.0
 
-        df['clickbait_score'] = df['titulo'].apply(calc_caixa_alta)
+        if 'titulo' in df.columns and 'descricao' in df.columns:
+            score_titulo = df['titulo'].apply(calc_grito_visual)
+            score_desc = df['descricao'].apply(calc_grito_visual)
+            df['clickbait_score'] = np.maximum(score_titulo, score_desc)
+        elif 'titulo' in df.columns:
+            df['clickbait_score'] = df['titulo'].apply(calc_grito_visual)
 
-        # 5. Emoção (vibe_emojis)
+        # 4. Emoção (vibe_emojis)
         def extrair_emojis(texto):
             texto_str = str(texto)
             if texto_str == 'nan' or not texto_str.strip():
                 return ""
-            # Pega todos os emojis da string usando a biblioteca oficial
             emojis_encontrados = [c['emoji'] for c in emoji.emoji_list(texto_str)]
             return "".join(emojis_encontrados)
 
-        # Junta emojis do título e da descrição
-        df['vibe_emojis'] = (df['titulo'].apply(extrair_emojis) + df['descricao'].apply(extrair_emojis))
+        if 'titulo' in df.columns and 'descricao' in df.columns:
+            df['vibe_emojis'] = (df['titulo'].apply(extrair_emojis) + df['descricao'].apply(extrair_emojis))
 
-        # 6. SEO (tags_limpas)
-        def limpar_tags(tag_val):
-            # Blindagem que combinamos para evitar o crash com as listas da API
-            if isinstance(tag_val, (list, np.ndarray)):
-                return ", ".join(str(t) for t in tag_val)
-            
-            tag_str = str(tag_val)
-            if tag_str == 'nan' or tag_str.strip() == "":
-                return ""
-            
-            try:
-                # Tenta converter a string "['tag1', 'tag2']" de volta para uma lista real do Python
-                if tag_str.startswith('['):
-                    tags_list = ast.literal_eval(tag_str)
-                    return ", ".join(tags_list)
-            except(ValueError, SyntaxError):
-                pass
-            # Fallback caso a avaliação falhe: remove colchetes e aspas com Regex
-            return re.sub(r"[\[\]\']", "", tag_str)
+        # 5. SEO & Semântica (palavras_chave) -> Super Feature
+        YOUTUBE_CATEGORY_IDS = {
+            "1": "Film & Animation", "2": "Autos & Vehicles", "10": "Music",
+            "15": "Pets & Animals", "17": "Sports", "19": "Travel & Events",
+            "20": "Gaming", "22": "People & Blogs", "23": "Comedy",
+            "24": "Entertainment", "25": "News & Politics", "26": "Howto & Style",
+            "27": "Education", "28": "Science & Technology", "29": "Nonprofits & Activism",
+            "18": "Short Movies", "21": "Videoblogging", "30": "Movies",
+            "31": "Anime/Animation", "32": "Action/Adventure", "33": "Classics",
+            "34": "Comedy (Backend/Movies)", "35": "Documentary", "36": "Drama",
+            "37": "Family", "38": "Foreign", "39": "Horror", "40": "Sci-Fi/Fantasy",
+            "41": "Thriller", "42": "Shorts", "43": "Shows", "44": "Trailers"
+        }
 
-        df['tags_limpas'] = df['tags'].apply(limpar_tags)
+        def construir_core_semantico(row):
+            from urllib.parse import unquote
+            palavras = []
+
+            topicos = row.get("topicos_wikipedia", "[]")
+            if isinstance(topicos, str):
+                try: 
+                    topicos = ast.literal_eval(topicos)
+                except (ValueError, SyntaxError): 
+                    topicos = []
+            if isinstance(topicos, list):
+                for url in topicos:
+                    termo = unquote(url.split("/")[-1]).replace("_", " ")
+                    palavras.append(termo)
+
+            cat_id = str(row.get("categoria_id", ""))
+            if cat_id in YOUTUBE_CATEGORY_IDS:
+                palavras.append(YOUTUBE_CATEGORY_IDS[cat_id])
+
+            titulo = str(row.get("titulo", ""))
+            descricao = str(row.get("descricao", ""))
+            palavras.extend(re.findall(r"#(\w+)", titulo))
+            palavras.extend(re.findall(r"#(\w+)", descricao))
+
+            tags = row.get("tags", "[]")
+            if isinstance(tags, str):
+                try: 
+                    tags = ast.literal_eval(tags)
+                except (ValueError, SyntaxError): 
+                    tags = []
+            if isinstance(tags, list):
+                palavras.extend(tags)
+
+            palavras_limpas = set()
+            for p in palavras:
+                if p and isinstance(p, str):
+                    palavras_limpas.add(p.strip().lower())
+
+            return ", ".join(sorted(list(palavras_limpas)))
+
+        df['palavras_chave'] = df.apply(construir_core_semantico, axis=1)
 
         print(" SUCESSO ABSOLUTO!")
         print(" -> Novas colunas adicionadas:")
-        print("    [Estrutura]: estrutura_blocos, ritmo_palavras_seg")
+        print("    [Estrutura]: estrutura_blocos")
         print("    [Direção]: pistas_audio, clickbait_score, vibe_emojis")
-        print("    [SEO]: tags_limpas")
-        print("\nAs instruções de Direção e Roteiro estão prontas para o LLM!")
+        print("    [Semântica]: palavras_chave")
+        print("\nAs instruções de Direção, Roteiro e SEO Semântico estão prontas para o LLM!")
 
     except Exception as e:
         print(f" Ops, deu um erro ao tentar processar a Etapa 5: {e}")
 
     return df
 
-def criar_assinaturas_semanticas(df: pd.DataFrame) -> pd.DataFrame:
+def purificar_texto_e_calcular_ritmo(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Gera Assinaturas Semânticas (Super Match) combinando variáveis.
-    Prepara os dados para indexação vetorial e leitura nativa pelo LLM.
+    Purifica a transcrição removendo marcadores nativos do YouTube e prepara para NLP.
+    Em seguida, calcula o ritmo de fala real (pacing) com base no texto purificado.
     """
-    print("Iniciando Etapa 6: Gerando Assinaturas Semânticas (Super Match)...")
+    print("Iniciando Etapa 7: Purificação Semântica e Cálculo de Ritmo...")
 
     try:
-        # Funções auxiliares para traduzir números em "conceitos textuais" para a IA
-        def categorizar_ritmo(ritmo):
-            if pd.isna(ritmo):
-                return "desconhecido"
-            if ritmo < 1.0:
-                return "baixo"
-            elif ritmo < 2.5:
-                return "médio"
-            else:
-                return "alto"
-
-        def formatar_views(views):
-            if pd.isna(views):
-                return "0"
-            if views >= 1000:
-                return f"{int(views/1000)}k"
-            return str(int(views))
-
-        def formatar_booleano(valor):
-            return "Sim" if valor else "Não"
-
-        # Função principal que constrói a frase para cada linha do dataset
-        def criar_assinatura(row):
-            nicho = str(row.get('nicho', 'N/A'))
-
-            # Limpa formatação de lista dos tópicos, se houver
-            topicos = str(row.get('topicos_wikipedia', '')).replace('[', '').replace(']', '').replace("'", "")
-
-            formato = str(row.get('duracao_segundos', 0))
-            timeline = str(row.get('estrutura_blocos', 'N/A'))
-            ritmo = categorizar_ritmo(row.get('ritmo_palavras_seg', 0))
-            tracao = formatar_views(row.get('velocidade_views', 0))
-            audio = formatar_booleano(row.get('conteudo_licenciado', False))
-            tags = str(row.get('tags_limpas', ''))
-
-            # Montando o mega prompt (A Assinatura)
-            assinatura = (
-                f"Nicho: [{nicho}]. "
-                f"Tópicos: [{topicos}]. "
-                f"Formato: [{formato}] segundos. "
-                f"Timeline: [{timeline}]. "
-                f"Ritmo: [{ritmo}]. "
-                f"Tração: [{tracao}] views/dia. "
-                f"Áudio trend: [{audio}]. "
-                f"Tags: [{tags}]."
-            )
-            return assinatura
-
-        # Aplica a função linha a linha
-        df['assinatura_vetorial'] = df.apply(criar_assinatura, axis=1)
-
-        print(" SUCESSO ABSOLUTO!")
-        print(" -> Coluna criada: assinatura_vetorial")
-        
-        # Pequena trava de segurança para o print não quebrar se o df vier vazio
-        if not df.empty:
-            print("\n💡 Exemplo de como a IA vai enxergar o primeiro vídeo:")
-            print(f"   {df['assinatura_vetorial'].iloc[0]}")
-            
-        print("\nO Vector Store agora tem a 'Isca Perfeita' para a Partida Fria!")
-
-    except Exception as e:
-        print(f" Ops, deu um erro ao tentar processar a Etapa 6: {e}")
-
-    return df
-
-def purificar_texto_falado(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Purificação Semântica do Texto.
-    Remove conteúdo entre colchetes [] ou parênteses () (como tags de áudio)
-    e cria a coluna 'texto_falado_limpo' ideal para geração de Embeddings.
-    """
-    print("Iniciando Etapa 7: Purificação Semântica do Texto...")
-
-    try:
-        # Função com Regex GERAL: Remove qualquer conteúdo entre [] ou ()
+        # 1. Purificação Semântica (texto_falado_limpo)
         def purificar_texto(texto):
             if pd.isna(texto):
                 return ""
             texto_str = str(texto)
 
-            # Substitui [...] ou (...) por um espaço vazio
-            texto_sem_tags = re.sub(r'\[.*?\]|\(.*?\)', ' ', texto_str)
+            # Remove marcadores de acessibilidade [], legendas manuais () e músicas ♪
+            texto_sem_tags = re.sub(r'\[.*?\]|\(.*?\)|♪', ' ', texto_str)
 
-            # Limpa os espaços duplos que podem ter sobrado e remove espaços nas pontas
-            texto_limpo = re.sub(r'\s+', ' ', texto_sem_tags).strip()
+            # Padroniza para NLP: remove espaços duplos, limpa pontas e joga para minúsculas
+            texto_limpo = re.sub(r'\s+', ' ', texto_sem_tags).strip().lower()
 
             return texto_limpo
 
-        # Cria a nova coluna limpa (preservando o pipeline)
         if 'texto_falado' in df.columns:
             df['texto_falado_limpo'] = df['texto_falado'].apply(purificar_texto)
 
+        # 2. Pacing Real (ritmo_palavras_seg)
+        # Agora o split() roda em cima do texto limpo. Um vídeo puramente musical,
+        # cujo texto_falado era só "[music]", agora terá 0 palavras, refletindo a realidade.
+        if 'texto_falado_limpo' in df.columns and 'duracao_segundos' in df.columns:
+            contagem_palavras = df['texto_falado_limpo'].fillna("").apply(lambda x: len(str(x).split()))
+
+            df['ritmo_palavras_seg'] = np.where(
+                df['duracao_segundos'] > 0, 
+                contagem_palavras / df['duracao_segundos'], 
+                0.0
+            )
+
         print(" SUCESSO ABSOLUTO!")
         print(" -> Nova coluna criada: texto_falado_limpo")
-        print(" -> Todas as tags de áudio e anotações do YouTube foram varridas.")
-        print("\nO texto agora é puramente narrativo e está pronto para o Embedding!")
+        print(" -> Nova coluna criada: ritmo_palavras_seg")
+        print(" -> Todas as tags de áudio varridas e texto convertido para minúsculas.")
+        print("\nO texto e o ritmo estão perfeitamente ajustados para o Embedding!")
 
     except Exception as e:
         print(f" Ops, deu um erro ao tentar processar a Etapa 7: {e}")
@@ -366,14 +359,14 @@ def purificar_texto_falado(df: pd.DataFrame) -> pd.DataFrame:
 
 def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Unificação de Idioma (Arquitetura Híbrida sem perda de dados).
+    Unificação de Idioma para NLP (Arquitetura Híbrida sem perda de dados).
     Traduz as variáveis principais de texto para o inglês usando chunking,
-    evitando que textos longos quebrem o limite da API (5000 chars).
+    e garante a normalização (minúsculas) nas colunas estruturais.
     """
     # Inicializa o tqdm para o pandas
     tqdm.pandas()
 
-    print("Iniciando Etapa 8: Unificação de Idioma (Arquitetura Híbrida sem perda de dados)...")
+    print("Iniciando Etapa 8: Unificação de Idioma e Normalização para NLP...")
 
     try:
         tradutor = GoogleTranslator(source='auto', target='en')
@@ -406,24 +399,27 @@ def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
 
             return texto_traduzido_final.strip()
 
-        # Aplicando a tradução segura (com checagem de segurança para não quebrar)
-        print("1/4: Traduzindo a Assinatura Vetorial...")
-        if 'assinatura_vetorial' in df.columns:
-            df['assinatura_vetorial_en'] = df['assinatura_vetorial'].progress_apply(traduzir_texto_sem_perda)
-
-        print("\n2/4: Traduzindo o Texto Falado Limpo...")
-        if 'texto_falado_limpo' in df.columns:
-            df['texto_falado_limpo_en'] = df['texto_falado_limpo'].progress_apply(traduzir_texto_sem_perda)
-
-        print("\n3/4: Traduzindo os Títulos...")
+        # 1. Título
+        print("1/4: Traduzindo os Títulos...")
         if 'titulo' in df.columns:
             df['titulo_en'] = df['titulo'].progress_apply(traduzir_texto_sem_perda)
 
-        print("\n4/4: Traduzindo as Descrições...")
+        # 2. Descrição
+        print("\n2/4: Traduzindo as Descrições...")
         if 'descricao' in df.columns:
             df['descricao_en'] = df['descricao'].progress_apply(traduzir_texto_sem_perda)
 
-        print("\n SUCESSO ABSOLUTO! Sem nenhum dado perdido.")
+        # 3. Texto Falado Limpo (Forçando minúsculas para NLP)
+        print("\n3/4: Traduzindo o Texto Falado Limpo (Forçando lowercase)...")
+        if 'texto_falado_limpo' in df.columns:
+            df['texto_falado_limpo_en'] = df['texto_falado_limpo'].progress_apply(traduzir_texto_sem_perda).str.lower()
+
+        # 4. Palavras-Chave (A nova Super Feature, forçando minúsculas para NLP)
+        print("\n4/4: Traduzindo as Palavras-Chave (Forçando lowercase)...")
+        if 'palavras_chave' in df.columns:
+            df['palavras_chave_en'] = df['palavras_chave'].progress_apply(traduzir_texto_sem_perda).str.lower()
+
+        print("\n SUCESSO ABSOLUTO! Idiomas unificados e matriz pronta para Machine Learning.")
 
     except Exception as e:
         print(f" Ops, deu um erro ao tentar processar a Etapa 8: {e}")
@@ -533,7 +529,8 @@ def extrair_features_thumbnail_gemini(df: pd.DataFrame) -> pd.DataFrame:
 def maestro_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Orquestra a execução sequencial de todas as 9 etapas da Usina de Features.
-    Recebe o DataFrame (a linha da Salinha VIP) bruto e devolve processado.
+    Recebe o DataFrame (a linha da Salinha VIP) bruto e devolve processado
+    com a ordem exata das 41 colunas oficiais, printando o antes e depois.
     """
     print("\n" + "="*55)
     print("🎬 INICIANDO USINA DE FEATURES (MAESTRO)")
@@ -554,11 +551,8 @@ def maestro_features(df: pd.DataFrame) -> pd.DataFrame:
     # Etapa 5: Formato, Direção e Copywriting
     df = criar_features_formato_copywriting(df)
     
-    # Etapa 6: Assinaturas Semânticas (Vector Store)
-    df = criar_assinaturas_semanticas(df)
-    
     # Etapa 7: Purificação do Texto Falado
-    df = purificar_texto_falado(df)
+    df = purificar_texto_e_calcular_ritmo(df)
     
     # Etapa 8: Unificação de Idioma (Tradução segura)
     df = unificar_idioma_ingles(df)
@@ -566,8 +560,44 @@ def maestro_features(df: pd.DataFrame) -> pd.DataFrame:
     # Etapa 9: Visão Computacional (Gemini 2.5 Flash)
     df = extrair_features_thumbnail_gemini(df)
 
+    # ==============================================================
+    # ETAPA 10: REORDENAÇÃO FINAL (ENFORCING DO SCHEMA OFICIAL)
+    # ==============================================================
+    print("\n" + "-"*55)
+    print("ETAPA 10: ALINHAMENTO DE COLUNAS")
+    print("-"*55)
+    
+    # PRINT ANTES: Mostra a bagunça que o Pandas fez
+    print(f"ORDEM ANTES:\n{df.columns.tolist()}\n")
+
+    ordem_oficial = [
+        'video_id', 'titulo', 'descricao', 'tags', 'texto_falado',
+        'canal_id', 'canal_nome', 'visualizacoes', 'curtidas', 'comentarios',
+        'data_publicacao', 'duracao_segundos', 'tem_legenda_nativa',
+        'conteudo_licenciado', 'feito_para_criancas', 'categoria_id',
+        'idioma_audio_default', 'idioma_texto_default', 'topicos_wikipedia',
+        'thumb_maxres', 'nicho', 'dia_postagem', 'hora_postagem', 'idade_dias',
+        'velocidade_views', 'taxa_conversao', 'taxa_discussao', 'score_viral',
+        'estrutura_blocos', 'ritmo_palavras_seg', 'pistas_audio', 'clickbait_score',
+        'vibe_emojis', 'palavras_chave', 'texto_falado_limpo', 'texto_falado_limpo_en',
+        'titulo_en', 'descricao_en', 'descricao_visual_thumb', 'texto_thumbnail',
+        'palavras_chave_en'
+    ]
+    
+    # Filtra as colunas para evitar o erro de 'KeyError' caso alguma falhe
+    colunas_presentes = [col for col in ordem_oficial if col in df.columns]
+    
+    # Salva qualquer coluna extra que tenha sido gerada
+    colunas_extras = [col for col in df.columns if col not in ordem_oficial]
+    
+    # Aplica a máscara de ordenação (oficiais primeiro, sobras depois)
+    df = df[colunas_presentes + colunas_extras]
+
+    # PRINT DEPOIS: Mostra a lista perfeitamente alinhada
+    print(f" ORDEM DEPOIS:\n{df.columns.tolist()}")
+
     print("\n" + "="*55)
-    print("🏁 USINA DE FEATURES FINALIZADA COM SUCESSO!")
+    print(" USINA DE FEATURES FINALIZADA E COLUNAS ORDENADAS!")
     print("="*55 + "\n")
 
     return df
