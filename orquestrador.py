@@ -15,6 +15,7 @@ from conexoes_externas import (
 from coletor_youtube import buscar_dados_completos_shorts
 from extrator_legendas import extrair_texto_falado
 from processador_features import maestro_features
+from calibrar_limiares import main as calibrar_limiares
 
 def gerenciar_teto_200(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -32,7 +33,10 @@ def gerenciar_teto_200(df: pd.DataFrame) -> pd.DataFrame:
     
     # Agrupa por nicho e corta no limite de 200
     df_limitado = df_ordenado.groupby('nicho').head(200).reset_index(drop=True)
-    
+
+    # Converte de volta para string no mesmo formato da API do YouTube
+    df_limitado['data_publicacao'] = df_limitado['data_publicacao'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
     return df_limitado
 
 def main():
@@ -190,6 +194,12 @@ def main():
     # ÚNICO UPLOAD MATADOR DE TODA A OPERAÇÃO
     print(f"   🚀 Subindo base consolidada e limpa para o Supabase ({len(df_mestre)} linhas totais)...")
     atualizar_csv_mestre(df_mestre)
+
+    # Recalibra os limiares fixos (score_viral/label_viral/estrutura_blocos)
+    # para refletir a base que acabou de ser atualizada — vale para os
+    # vídeos que entrarem amanhã, não mexe nos que já foram processados hoje.
+    print("\n--- RECALIBRAÇÃO: ajustando limiares fixos com a base atualizada ---")
+    calibrar_limiares()
 
     print("\n=== PIPELINE FINALIZADO COM SUCESSO ===")
     

@@ -1,0 +1,217 @@
+{
+  "esquetes": {
+    "score_viral": {
+      "velocidade_views": {
+        "min": 73521.39869281046,
+        "max": 1356725.3465346536
+      },
+      "taxa_conversao": {
+        "min": 0.0,
+        "max": 4.725514125351419
+      },
+      "taxa_discussao": {
+        "min": 0.0,
+        "max": 0.0257464292235405
+      }
+    },
+    "label_viral": {
+      "cortes_score_viral": {
+        "q25": 0.1586010476106382,
+        "q50": 0.19944803584170095,
+        "q75": 0.24652492001443038
+      },
+      "labels_em_ordem": [
+        "frio",
+        "aquecido",
+        "viral",
+        "super_viral"
+      ]
+    },
+    "estrutura_blocos": {
+      "densidade_roteiro": {
+        "q1": 54.5,
+        "q3": 218.0
+      },
+      "ritmo_palavras_seg": {
+        "q1": 1.3888888888888888,
+        "q3": 2.7454497303543914
+      }
+    },
+    "metadados": {
+      "n_videos_calibracao": 100,
+      "calibrado_em": "2026-06-20T22:50:12.949590+00:00"
+    }
+  },
+  "historias_denso": {
+    "score_viral": {
+      "velocidade_views": {
+        "min": 1033.5864661654136,
+        "max": 24843.788732394365
+      },
+      "taxa_conversao": {
+        "min": 0.0,
+        "max": 10.44314282965829
+      },
+      "taxa_discussao": {
+        "min": 0.0027779210832304,
+        "max": 0.1125998653567747
+      }
+    },
+    "label_viral": {
+      "cortes_score_viral": {
+        "q25": 0.1502211927152951,
+        "q50": 0.1826459055291891,
+        "q75": 0.2785237961743035
+      },
+      "labels_em_ordem": [
+        "frio",
+        "aquecido",
+        "viral",
+        "super_viral"
+      ]
+    },
+    "estrutura_blocos": {
+      "densidade_roteiro": {
+        "q1": 626.0,
+        "q3": 837.0
+      },
+      "ritmo_palavras_seg": {
+        "q1": 4.522388059701493,
+        "q3": 4.933333333333334
+      }
+    },
+    "metadados": {
+      "n_videos_calibracao": 125,
+      "calibrado_em": "2026-06-20T22:50:12.956471+00:00"
+    }
+  },
+  "satisfying": {
+    "score_viral": {
+      "velocidade_views": {
+        "min": 1830.1142857142856,
+        "max": 689095.7643312102
+      },
+      "taxa_conversao": {
+        "min": 0.0,
+        "max": 6.8106597558310185
+      },
+      "taxa_discussao": {
+        "min": 0.0,
+        "max": 0.5086213608894835
+      }
+    },
+    "label_viral": {
+      "cortes_score_viral": {
+        "q25": 0.025920014597236946,
+        "q50": 0.06491929360195527,
+        "q75": 0.12369619639924351
+      },
+      "labels_em_ordem": [
+        "frio",
+        "aquecido",
+        "viral",
+        "super_viral"
+      ]
+    },
+    "estrutura_blocos": {
+      "densidade_roteiro": {
+        "q1": 0.0,
+        "q3": 7.0
+      },
+      "ritmo_palavras_seg": {
+        "q1": 0.0,
+        "q3": 0.2863636363636364
+      }
+    },
+    "metadados": {
+      "n_videos_calibracao": 99,
+      "calibrado_em": "2026-06-20T22:50:12.962756+00:00"
+    }
+  },
+  "street_interview": {
+    "score_viral": {
+      "velocidade_views": {
+        "min": 6445.85,
+        "max": 448532.7049180328
+      },
+      "taxa_conversao": {
+        "min": 0.5231358036544227,
+        "max": 5.422222566974617
+      },
+      "taxa_discussao": {
+        "min": 0.0009819024469008,
+        "max": 0.1272135576715384
+      }
+    },
+    "label_viral": {
+      "cortes_score_viral": {
+        "q25": 0.13985449386844326,
+        "q50": 0.18539181024798723,
+        "q75": 0.24917187481754766
+      },
+      "labels_em_ordem": [
+        "frio",
+        "aquecido",
+        "viral",
+        "super_viral"
+      ]
+    },
+    "estrutura_blocos": {
+      "densidade_roteiro": {
+        "q1": 49.0,
+        "q3": 202.0
+      },
+      "ritmo_palavras_seg": {
+        "q1": 2.413793103448276,
+        "q3": 3.6052631578947367
+      }
+    },
+    "metadados": {
+      "n_videos_calibracao": 25,
+      "calibrado_em": "2026-06-20T22:50:12.970620+00:00"
+    }
+  },
+  "tech_review": {
+    "score_viral": {
+      "velocidade_views": {
+        "min": 11143.412213740456,
+        "max": 180239.3775510204
+      },
+      "taxa_conversao": {
+        "min": 1.6073182495002818,
+        "max": 9.470269755942912
+      },
+      "taxa_discussao": {
+        "min": 0.0021371259815819,
+        "max": 0.3440251845149936
+      }
+    },
+    "label_viral": {
+      "cortes_score_viral": {
+        "q25": 0.1435654858942924,
+        "q50": 0.1825085008990737,
+        "q75": 0.25805910640578844
+      },
+      "labels_em_ordem": [
+        "frio",
+        "aquecido",
+        "viral",
+        "super_viral"
+      ]
+    },
+    "estrutura_blocos": {
+      "densidade_roteiro": {
+        "q1": 155.0,
+        "q3": 248.0
+      },
+      "ritmo_palavras_seg": {
+        "q1": 2.7142857142857144,
+        "q3": 3.494949494949495
+      }
+    },
+    "metadados": {
+      "n_videos_calibracao": 25,
+      "calibrado_em": "2026-06-20T22:50:12.976274+00:00"
+    }
+  }
+}

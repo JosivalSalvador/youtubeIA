@@ -1,0 +1,123 @@
+
+────────────────────────────────────────────────────────────
+1. COLUNAS PRESENTES
+────────────────────────────────────────────────────────────
+  ✅ Todas as 52 colunas esperadas estão presentes.
+  ✅ Nenhuma coluna extra inesperada.
+
+────────────────────────────────────────────────────────────
+2. ORDEM DAS COLUNAS
+────────────────────────────────────────────────────────────
+  ✅ Ordem das colunas correta.
+
+────────────────────────────────────────────────────────────
+3. NULOS NAS COLUNAS CRÍTICAS
+────────────────────────────────────────────────────────────
+  ✅ dia_postagem: sem nulos.
+  ✅ hora_postagem: sem nulos.
+  ✅ janela_postagem: sem nulos.
+  ✅ idade_dias: sem nulos.
+  ✅ velocidade_views: sem nulos.
+  ✅ taxa_conversao: sem nulos.
+  ✅ taxa_discussao: sem nulos.
+  ✅ score_viral: sem nulos.
+  ✅ label_viral: sem nulos.
+  ✅ faixa_duracao: sem nulos.
+  ✅ estrutura_blocos: sem nulos.
+  ✅ ritmo_palavras_seg: sem nulos.
+  ✅ densidade_roteiro: sem nulos.
+  ✅ tem_repeticao_roteiro: sem nulos.
+  ✅ sentimento_roteiro: sem nulos.
+  ❌ ERRO   | tipo_audio_dominante: 312 nulos reais (NaN).
+  ✅ clickbait_score: sem nulos.
+  ✅ completude_seo: sem nulos.
+  ❌ ERRO   | vibe_emojis: 158 nulos reais (NaN).
+  ❌ ERRO   | pistas_audio: 311 nulos reais (NaN).
+  ❌ ERRO   | pistas_audio_en: 312 nulos reais (NaN).
+  ✅ palavras_chave: sem nulos.
+  ✅ palavras_chave_en: sem nulos.
+  ❌ ERRO   | vocabulario_falado: 76 nulos reais (NaN).
+  ❌ ERRO   | texto_falado_limpo: 67 nulos reais (NaN).
+  ❌ ERRO   | texto_falado_limpo_en: 67 nulos reais (NaN).
+
+────────────────────────────────────────────────────────────
+4. DOMÍNIOS DAS COLUNAS CATEGÓRICAS
+────────────────────────────────────────────────────────────
+  ✅ dia_postagem: todos os valores dentro do domínio ['friday', 'monday', 'saturday', 'sunday', 'thursday', 'tuesday', 'wednesday'].
+  ✅ janela_postagem: todos os valores dentro do domínio ['madrugada', 'manha', 'noite', 'tarde'].
+  ✅ faixa_duracao: todos os valores dentro do domínio ['desconhecido', 'short_longo', 'short_padrao', 'ultra_curto'].
+  ✅ estrutura_blocos: todos os valores dentro do domínio ['esquete', 'esquete_com_hook', 'impacto_rapido', 'narrativa'].
+  ✅ label_viral: todos os valores dentro do domínio ['aquecido', 'frio', 'super_viral', 'viral'].
+  ✅ sentimento_roteiro: todos os valores dentro do domínio ['negativo', 'neutro', 'positivo'].
+
+────────────────────────────────────────────────────────────
+5. LIMITES NUMÉRICOS
+────────────────────────────────────────────────────────────
+  ✅ hora_postagem: valores dentro dos limites [0, 23].
+  ✅ idade_dias: valores dentro dos limites [1, 365].
+  ✅ velocidade_views: valores dentro dos limites [0, ∞].
+  ✅ taxa_conversao: valores dentro dos limites [0, 100].
+  ✅ taxa_discussao: valores dentro dos limites [0, 100].
+  ✅ score_viral: valores dentro dos limites [0, 1].
+  ✅ clickbait_score: valores dentro dos limites [0, 1].
+  ✅ completude_seo: valores dentro dos limites [0, ∞].
+  ✅ ritmo_palavras_seg: valores dentro dos limites [0, ∞].
+  ✅ densidade_roteiro: valores dentro dos limites [0, ∞].
+
+────────────────────────────────────────────────────────────
+6. CONSISTÊNCIA INTERNA
+────────────────────────────────────────────────────────────
+  ✅ velocidade_views: consistente com visualizacoes / idade_dias.
+  ✅ taxa_conversao: consistente com curtidas / visualizacoes * 100.
+  ✅ taxa_discussao: consistente com comentarios / visualizacoes * 100.
+  ✅ ritmo_palavras_seg: consistente com palavras / duracao_segundos.
+  ✅ densidade_roteiro: consistente com len(texto_falado_limpo_en.split()).
+  ✅ gancho_primeira_frase: consistente com primeiras 15 palavras.
+  ✅ faixa_duracao: limites corretamente aplicados.
+  ✅ score_viral: todos os valores entre 0 e 1.
+  ✅ label_viral: medianas de score crescem corretamente frio→super_viral.
+  ✅ idade_dias: consistente com data_publicacao (tolerância ±1 dia).
+  ✅ hora_postagem: consistente com data_publicacao.
+  ✅ dia_postagem: consistente com data_publicacao.
+  ✅ texto_falado_limpo: nenhuma tag ASR residual encontrada.
+  ✅ texto_falado_limpo: 100% em lowercase.
+  ✅ texto_falado_limpo_en: 100% em lowercase.
+  ✅ clickbait_score: todos entre 0 e 1.
+  ✅ tem_repeticao_roteiro: apenas valores booleanos.
+  ✅ palavras_chave_en: 100% em lowercase.
+  ✅ pistas_audio_en: 100% em lowercase.
+  ✅ video_id: todos únicos, originais preservados.
+
+────────────────────────────────────────────────────────────
+7. INTEGRIDADE DAS COLUNAS ORIGINAIS
+────────────────────────────────────────────────────────────
+  ✅ visualizacoes: tipo numérico OK.
+  ✅ curtidas: tipo numérico OK.
+  ✅ comentarios: tipo numérico OK.
+  ✅ duracao_segundos: tipo numérico OK.
+  ✅ video_id: sem nulos.
+  ✅ canal_id: sem nulos.
+  ✅ thumb_maxres: sem nulos.
+  ⚠️  AVISO  | nicho: múltiplos valores → <StringArray>
+['esquetes', 'satisfying', 'historias_denso', 'street_interview',
+ 'tech_review']
+Length: 5, dtype: str. Esperado apenas 1 para CSV de nicho único.
+
+────────────────────────────────────────────────────────────
+8. RESUMO DO DATASET
+────────────────────────────────────────────────────────────
+  ✅ Total de linhas  : 374
+  ✅ Total de colunas : 52
+  ✅ Esperado         : 52 colunas (21 originais + 31 criadas)
+  ✅ faixa_duracao: {'short_longo': 196, 'short_padrao': 104, 'ultra_curto': 74}
+  ✅ estrutura_blocos: {'narrativa': 140, 'impacto_rapido': 88, 'esquete': 77, 'esquete_com_hook': 69}
+  ✅ label_viral: {'frio': 113, 'aquecido': 98, 'super_viral': 84, 'viral': 79}
+  ✅ sentimento_roteiro: {'positivo': 179, 'negativo': 102, 'neutro': 93}
+
+============================================================
+  RESULTADO FINAL
+============================================================
+  ✅ OK     : 72
+  ⚠️  Avisos : 1
+  ❌ Erros  : 7
+============================================================
