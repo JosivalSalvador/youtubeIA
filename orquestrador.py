@@ -73,7 +73,7 @@ def main():
         # FASE 1: COLETA DE METADADOS INÉDITOS (Batedor)
         # ====================================================================
         nichos_ativos = obter_nichos_ativos()
-        META_POR_NICHO = 25 
+        META_POR_NICHO = 1 
         
         print("\n--- FASE 1: VARREDURA DE NOVOS VÍDEOS ---")
         novos_dados_lista = []

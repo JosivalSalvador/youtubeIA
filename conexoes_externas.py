@@ -49,7 +49,7 @@ def obter_nichos_ativos() -> list:
     # VETOR MANUAL (REMOVER QUANDO A API ESTIVER PRONTA)
     print("           -> Usando vetor manual (API não conectada).")
     return [
-        "esquetes",
+        'historias_denso', 'esquetes', 'satisfying', 'street_interview', 'tech_review'
     ]
 
 def baixar_csv_mestre() -> pd.DataFrame:

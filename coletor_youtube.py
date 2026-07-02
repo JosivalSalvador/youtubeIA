@@ -7,14 +7,12 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta, timezone
 
 # --- CONFIGURAÇÃO INICIAL DO MÓDULO ---
-# Carrega a chave do .env de forma isolada e segura
 load_dotenv()
 API_KEY = os.getenv('YOUTUBE_API_KEY')
 
 if not API_KEY:
     raise ValueError("Erro Crítico: YOUTUBE_API_KEY não encontrada no arquivo .env")
 
-# Constrói o cliente da API Oficial do Google
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
 # --- FUNÇÃO PRINCIPAL DE COLETA (AJUSTADA PARA O PIPELINE) ---
@@ -23,51 +21,64 @@ def buscar_dados_completos_shorts(query, ids_conhecidos, max_results=25):
     Realiza a coleta de metadados de vídeos do YouTube inéditos.
     O texto falado não é extraído aqui para permitir o pacing assíncrono no Orquestrador.
     """
-    
-    data_limite = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
     print(f"\nIniciando busca na API Oficial para a query: '{query}'")
-    print(f"📅 Filtrando apenas virais postados após: {data_limite}")
-    
+
     try:
         video_ids_ineditos = []
-        next_page_token = None
 
-        # Etapa 1: Coleta de IDs de vídeos com filtro de duplicatas
-        while len(video_ids_ineditos) < max_results:
-            # Puxa sempre 50 para ter margem de descarte contra os ids_conhecidos
-            search_kwargs = {
-                "q": query,
-                "part": "id",
-                "type": "video",
-                "videoDuration": "short", # Garante que são Shorts
-                "order": "viewCount",
-                "publishedAfter": data_limite,
-                "maxResults": 50, 
-            }
-            if next_page_token:
-                search_kwargs["pageToken"] = next_page_token
-
-            request_search = youtube.search().list(**search_kwargs)
-            response_search = request_search.execute()
-
-            novos_ids = [item['id']['videoId'] for item in response_search.get('items', []) if item['id'].get('videoId')]
-            
-            # Filtra os IDs verificando a base existente
-            for vid in novos_ids:
-                if vid not in ids_conhecidos:
-                    video_ids_ineditos.append(vid)
-                    ids_conhecidos.add(vid) # Evita duplicação na mesma run
-                    
-                    if len(video_ids_ineditos) == max_results:
-                        break # Bateu a meta estabelecida
-
-            next_page_token = response_search.get('nextPageToken', None)
-
-            if not next_page_token:
+        # Etapa 1: Coleta de IDs com fallback progressivo de janela temporal
+        # Tenta 3 meses → 4 meses → 5 meses até completar max_results
+        for meses in [3, 4, 5]:
+            if len(video_ids_ineditos) >= max_results:
                 break
 
+            dias = meses * 30
+            data_limite = (datetime.now(timezone.utc) - timedelta(days=dias)).strftime('%Y-%m-%dT%H:%M:%SZ')
+            print(f"📅 Tentando janela de {meses} meses (após {data_limite}) — inéditos até agora: {len(video_ids_ineditos)}/{max_results}")
+
+            next_page_token = None
+
+            while len(video_ids_ineditos) < max_results:
+                # Puxa sempre 50 para ter margem de descarte contra os ids_conhecidos
+                search_kwargs = {
+                    "q": query,
+                    "part": "id",
+                    "type": "video",
+                    "videoDuration": "short",  # Garante que são Shorts
+                    "order": "viewCount",
+                    "publishedAfter": data_limite,
+                    "maxResults": 50,
+                }
+                if next_page_token:
+                    search_kwargs["pageToken"] = next_page_token
+
+                request_search = youtube.search().list(**search_kwargs)
+                response_search = request_search.execute()
+
+                novos_ids = [item['id']['videoId'] for item in response_search.get('items', []) if item['id'].get('videoId')]
+
+                # Filtra os IDs verificando a base existente
+                for vid in novos_ids:
+                    if vid not in ids_conhecidos:
+                        video_ids_ineditos.append(vid)
+                        ids_conhecidos.add(vid)  # Evita duplicação na mesma run
+
+                        if len(video_ids_ineditos) == max_results:
+                            break  # Bateu a meta estabelecida
+
+                next_page_token = response_search.get('nextPageToken', None)
+
+                if not next_page_token:
+                    break  # API sem mais páginas nessa janela — tenta a próxima
+
+        if len(video_ids_ineditos) < max_results:
+            print(f"⚠️ Esgotadas as 3 janelas. Coletados {len(video_ids_ineditos)}/{max_results} vídeos inéditos para '{query}'.")
+        else:
+            print(f"✓ Meta atingida: {len(video_ids_ineditos)} vídeos inéditos coletados para '{query}'.")
+
         if not video_ids_ineditos:
-            print("Resultado da consulta: Nenhum vídeo inédito encontrado.")
+            print(f"Resultado da consulta: Nenhum vídeo inédito encontrado para '{query}' em nenhuma janela.")
             return pd.DataFrame()
 
         videos_data = []
@@ -100,13 +111,12 @@ def buscar_dados_completos_shorts(query, ids_conhecidos, max_results=25):
                 except Exception:
                     duracao_segundos = 0
 
-                # O SEU MAPEAMENTO COMPLETO DE DADOS INTACTO
                 video_info = {
                     "video_id": video_id,
                     "titulo": snippet.get("title", ""),
                     "descricao": snippet.get("description", ""),
                     "tags": snippet.get("tags", []),
-                    "texto_falado": "", # O Orquestrador preencherá esta coluna durante o tempo de espera
+                    "texto_falado": "",
                     "canal_id": snippet.get("channelId", ""),
                     "canal_nome": snippet.get("channelTitle", ""),
                     "visualizacoes": int(stats.get("viewCount", 0)),

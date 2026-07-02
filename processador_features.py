@@ -332,6 +332,7 @@ def purificar_texto_e_calcular_ritmo(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
     """
     Unificação de Idioma para NLP (Arquitetura Híbrida sem perda de dados).
@@ -339,6 +340,7 @@ def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
     garantindo normalização (minúsculas) nas colunas estruturais.
     Inclui tradução de pistas_audio para padronizar marcadores sonoros
     entre nichos de idiomas diferentes.
+    Tenta indefinidamente com backoff de 10s até conseguir traduzir cada texto.
     """
     tqdm.pandas()
     print("Iniciando Etapa 8: Unificação de Idioma e Normalização para NLP...")
@@ -347,29 +349,45 @@ def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
         tradutor = GoogleTranslator(source='auto', target='en')
 
         def traduzir_texto_sem_perda(texto):
-            if pd.isna(texto) or str(texto).strip() == "":
+            if pd.isna(texto) or not str(texto).strip() or str(texto).strip().lower() == "nan":
                 return ""
 
-            texto_str = str(texto)
+            texto_str = str(texto).strip()
 
-            # Textos pequenos: traduz de uma vez
-            if len(texto_str) < 4900:
+            if not any(c.isalpha() for c in texto_str):
+                return texto_str
+
+            tentativa = 1
+
+            while True:
                 try:
-                    return tradutor.translate(texto_str)
-                except Exception:
-                    return texto_str
+                    if len(texto_str) < 1500:
+                        traduzido = tradutor.translate(texto_str)
+                    else:
+                        pedacos = textwrap.wrap(texto_str, width=1500, break_long_words=False)
+                        traduzido = ""
+                        for pedaco in pedacos:
+                            traduzido_pedaco = None
+                            while traduzido_pedaco is None:
+                                try:
+                                    traduzido_pedaco = tradutor.translate(pedaco)
+                                except Exception as e:
+                                    print(f" Etapa 8: pedaço falhou ({e}), tentando novamente em 10s...")
+                                    time.sleep(10)
+                            traduzido += traduzido_pedaco + " "
+                        traduzido = traduzido.strip()
 
-            # CHUNKING: quebra em pedaços de até 4500 chars para não perder dados
-            pedacos = textwrap.wrap(texto_str, width=4500, break_long_words=False)
-            texto_traduzido_final = ""
-            for pedaco in pedacos:
-                try:
-                    texto_traduzido_final += tradutor.translate(pedaco) + " "
-                except Exception:
-                    # Se a API falhar no pedaço, preserva o original
-                    texto_traduzido_final += pedaco + " "
+                    if traduzido and traduzido.strip():
+                        return traduzido
 
-            return texto_traduzido_final.strip()
+                    print(f" Etapa 8: tentativa {tentativa} retornou vazio, tentando novamente em 10s...")
+                    tentativa += 1
+                    time.sleep(10)
+
+                except Exception as e:
+                    print(f" Etapa 8: tentativa {tentativa} falhou ({e}), tentando novamente em 10s...")
+                    tentativa += 1
+                    time.sleep(10)
 
         # 1. Título
         print("1/5: Traduzindo os Títulos...")
@@ -392,8 +410,6 @@ def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
             df['palavras_chave_en'] = df['palavras_chave'].progress_apply(traduzir_texto_sem_perda).str.lower()
 
         # 5. Pistas de Áudio
-        # Traduz marcadores como [हंसी] → [laughter], [संगीत] → [music]
-        # para padronizar entre nichos de idiomas diferentes.
         print("\n5/5: Traduzindo as Pistas de Áudio (lowercase)...")
         if 'pistas_audio' in df.columns:
             df['pistas_audio_en'] = df['pistas_audio'].progress_apply(traduzir_texto_sem_perda).str.lower()
@@ -406,10 +422,13 @@ def unificar_idioma_ingles(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def extrair_features_thumbnail_gemini(df: pd.DataFrame) -> pd.DataFrame:
     """
     Extração via API Gemini (Modo Trator + Log de Erro Real + Log Sucesso)
     Usa o Gemini Vision para extrair texto e contexto visual das thumbnails.
+    Se der 429, rotaciona para a próxima chave do keys.txt.
+    Se esgotar todas as chaves, continua com a última indefinidamente.
     """
     print("🚀 Iniciando Etapa 9: Extração via Gemini 2.5 Flash...")
 
@@ -418,8 +437,43 @@ def extrair_features_thumbnail_gemini(df: pd.DataFrame) -> pd.DataFrame:
     if not api_key:
         print(" ⚠️ [Aviso] GEMINI_API_KEY não encontrada no .env. Pulando análise visual.")
         return df
-        
-    client = genai.Client(api_key=api_key)
+
+    # ── Carrega pool de chaves do keys.txt ──────────────────────────────────
+    caminho_keys = os.path.join(os.path.dirname(__file__), 'keys.txt')
+    try:
+        with open(caminho_keys, 'r') as f:
+            pool_chaves = [linha.strip() for linha in f.readlines() if linha.strip()]
+    except FileNotFoundError:
+        print(" ⚠️ [Aviso] keys.txt não encontrado. Usando apenas a chave do .env.")
+        pool_chaves = [api_key]
+
+    indice_chave_atual = 0
+    client = genai.Client(api_key=pool_chaves[indice_chave_atual])
+
+    def trocar_chave():
+        nonlocal indice_chave_atual, client
+
+        proxima = indice_chave_atual + 1
+
+        if proxima >= len(pool_chaves):
+            print(" ⚠️ [Keys] Todas as chaves esgotadas. Continuando com a última...")
+            return
+
+        indice_chave_atual = proxima
+        nova_chave = pool_chaves[indice_chave_atual]
+
+        caminho_env = os.path.join(os.path.dirname(__file__), '.env')
+        with open(caminho_env, 'r') as f:
+            linhas = f.readlines()
+        with open(caminho_env, 'w') as f:
+            for linha in linhas:
+                if linha.startswith('GEMINI_API_KEY='):
+                    f.write(f'GEMINI_API_KEY={nova_chave}\n')
+                else:
+                    f.write(linha)
+
+        client = genai.Client(api_key=nova_chave)
+        print(f" 🔑 [Keys] Chave {indice_chave_atual + 1}/{len(pool_chaves)} ativada e salva no .env.")
 
     def extrair_dados_gemini(url_imagem):
         """Extração persistente: agora mostrando o erro real no console"""
@@ -461,8 +515,12 @@ def extrair_features_thumbnail_gemini(df: pd.DataFrame) -> pd.DataFrame:
                 # Mostra o erro exato para o usuário
                 print(f"\n ⚠️ Erro na API: {erro_real[:150]}...")
 
-                if any(cod in erro_clean for cod in ["429", "503", "500", "unavailable", "exhausted", "quota"]):
-                    print(" ⏳ Cota atingida ou instabilidade. Aguardando 15s para tentar de novo...")
+                if any(cod in erro_clean for cod in ["429", "quota", "exhausted"]):
+                    print(" 🔑 [Keys] Cota atingida. Trocando chave...")
+                    trocar_chave()
+                    time.sleep(5)
+                elif any(cod in erro_clean for cod in ["503", "500", "unavailable"]):
+                    print(" ⏳ Instabilidade. Aguardando 15s para tentar de novo...")
                     time.sleep(15)
                 else:
                     print(" 🔄 Tentando novamente em 15s...")
@@ -477,7 +535,7 @@ def extrair_features_thumbnail_gemini(df: pd.DataFrame) -> pd.DataFrame:
     print(f"📦 Processando {len(indices_validos)} imagens...\n")
 
     for idx in tqdm(indices_validos, desc="Progresso"):
-        
+
         # Trava de segurança corrigida (Trata None, NaN e "")
         valor_atual = df.at[idx, 'descricao_visual_thumb']
         if pd.notna(valor_atual) and str(valor_atual).strip() != "":
@@ -505,6 +563,9 @@ def extrair_features_thumbnail_gemini(df: pd.DataFrame) -> pd.DataFrame:
 
     print("\n✅ Etapa 9 Finalizada!")
     return df
+
+
+
 
 def criar_features_faixa_duracao(df: pd.DataFrame) -> pd.DataFrame:
     """

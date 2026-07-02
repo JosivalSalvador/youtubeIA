@@ -28,15 +28,15 @@
   ✅ densidade_roteiro: sem nulos.
   ✅ tem_repeticao_roteiro: sem nulos.
   ✅ sentimento_roteiro: sem nulos.
-  ❌ ERRO   | tipo_audio_dominante: 312 nulos reais (NaN).
+  ❌ ERRO   | tipo_audio_dominante: 316 nulos reais (NaN).
   ✅ clickbait_score: sem nulos.
   ✅ completude_seo: sem nulos.
-  ❌ ERRO   | vibe_emojis: 158 nulos reais (NaN).
-  ❌ ERRO   | pistas_audio: 311 nulos reais (NaN).
-  ❌ ERRO   | pistas_audio_en: 312 nulos reais (NaN).
+  ❌ ERRO   | vibe_emojis: 161 nulos reais (NaN).
+  ❌ ERRO   | pistas_audio: 315 nulos reais (NaN).
+  ❌ ERRO   | pistas_audio_en: 315 nulos reais (NaN).
   ✅ palavras_chave: sem nulos.
   ✅ palavras_chave_en: sem nulos.
-  ❌ ERRO   | vocabulario_falado: 76 nulos reais (NaN).
+  ❌ ERRO   | vocabulario_falado: 72 nulos reais (NaN).
   ❌ ERRO   | texto_falado_limpo: 67 nulos reais (NaN).
   ❌ ERRO   | texto_falado_limpo_en: 67 nulos reais (NaN).
 
@@ -58,7 +58,7 @@
   ✅ velocidade_views: valores dentro dos limites [0, ∞].
   ✅ taxa_conversao: valores dentro dos limites [0, 100].
   ✅ taxa_discussao: valores dentro dos limites [0, 100].
-  ✅ score_viral: valores dentro dos limites [0, 1].
+  ❌ ERRO   | score_viral: 1 valor(es) abaixo do mínimo esperado (0). Min encontrado: -0.0655
   ✅ clickbait_score: valores dentro dos limites [0, 1].
   ✅ completude_seo: valores dentro dos limites [0, ∞].
   ✅ ritmo_palavras_seg: valores dentro dos limites [0, ∞].
@@ -70,13 +70,13 @@
   ✅ velocidade_views: consistente com visualizacoes / idade_dias.
   ✅ taxa_conversao: consistente com curtidas / visualizacoes * 100.
   ✅ taxa_discussao: consistente com comentarios / visualizacoes * 100.
-  ✅ ritmo_palavras_seg: consistente com palavras / duracao_segundos.
-  ✅ densidade_roteiro: consistente com len(texto_falado_limpo_en.split()).
+  ❌ ERRO   | ritmo_palavras_seg: 63 linha(s) inconsistentes.
+  ❌ ERRO   | densidade_roteiro: 83 linha(s) inconsistentes.
   ✅ gancho_primeira_frase: consistente com primeiras 15 palavras.
   ✅ faixa_duracao: limites corretamente aplicados.
-  ✅ score_viral: todos os valores entre 0 e 1.
+  ❌ ERRO   | score_viral: 2 valor(es) fora do intervalo [0,1].
   ✅ label_viral: medianas de score crescem corretamente frio→super_viral.
-  ✅ idade_dias: consistente com data_publicacao (tolerância ±1 dia).
+  ⚠️  AVISO  | idade_dias: 374 linha(s) com diferença > 1 dia vs data_publicacao. Normal se o ajuste foi rodado em data diferente.
   ✅ hora_postagem: consistente com data_publicacao.
   ✅ dia_postagem: consistente com data_publicacao.
   ✅ texto_falado_limpo: nenhuma tag ASR residual encontrada.
@@ -99,25 +99,25 @@
   ✅ canal_id: sem nulos.
   ✅ thumb_maxres: sem nulos.
   ⚠️  AVISO  | nicho: múltiplos valores → <StringArray>
-['esquetes', 'satisfying', 'historias_denso', 'street_interview',
- 'tech_review']
+['esquetes', 'historias denso', 'satisfying', 'street interview',
+ 'tech review']
 Length: 5, dtype: str. Esperado apenas 1 para CSV de nicho único.
 
 ────────────────────────────────────────────────────────────
 8. RESUMO DO DATASET
 ────────────────────────────────────────────────────────────
-  ✅ Total de linhas  : 374
+  ✅ Total de linhas  : 379
   ✅ Total de colunas : 52
   ✅ Esperado         : 52 colunas (21 originais + 31 criadas)
-  ✅ faixa_duracao: {'short_longo': 196, 'short_padrao': 104, 'ultra_curto': 74}
-  ✅ estrutura_blocos: {'narrativa': 140, 'impacto_rapido': 88, 'esquete': 77, 'esquete_com_hook': 69}
-  ✅ label_viral: {'frio': 113, 'aquecido': 98, 'super_viral': 84, 'viral': 79}
-  ✅ sentimento_roteiro: {'positivo': 179, 'negativo': 102, 'neutro': 93}
+  ✅ faixa_duracao: {'short_longo': 198, 'short_padrao': 106, 'ultra_curto': 75}
+  ✅ estrutura_blocos: {'narrativa': 143, 'impacto_rapido': 89, 'esquete': 78, 'esquete_com_hook': 69}
+  ✅ label_viral: {'frio': 114, 'aquecido': 98, 'super_viral': 86, 'viral': 81}
+  ✅ sentimento_roteiro: {'positivo': 182, 'negativo': 104, 'neutro': 93}
 
 ============================================================
   RESULTADO FINAL
 ============================================================
-  ✅ OK     : 72
-  ⚠️  Avisos : 1
-  ❌ Erros  : 7
+  ✅ OK     : 67
+  ⚠️  Avisos : 2
+  ❌ Erros  : 11
 ============================================================
